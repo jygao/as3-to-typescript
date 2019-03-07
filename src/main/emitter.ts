@@ -4,7 +4,12 @@ import NodeKind = require('./nodeKind');
 import Operators = require('./operators');
 import KeyWords = require('./keywords');
 import Node = require('./node');
+import glob = require('glob');
+import path = require('path');
+import toolConfig = require('../../tool_config');
 
+
+var CAN_NOT_FIND_ANY_TS_FILE:string = " can not find any match ts file";
 //Utils
 function assign(target: any, ...items: any[]): any {
     return items.reduce(function (target: any, source: any) {
@@ -84,6 +89,7 @@ var defaultEmitterOptions = {
 var data: {
     source: string;
     options: EmitterOptions;
+    filePath:string;
 }
 
 var state: {
@@ -96,9 +102,10 @@ var state: {
 };
 
 var output: string;
-export function emit(ast: Node, source: string, options?: EmitterOptions) {
+export function emit(ast: Node, source: string, filePath?:string,options?: EmitterOptions) {
     data = {
         source: source,
+        filePath:filePath,
         options: assign(defaultEmitterOptions, options || {})
     };
     Object.freeze(data);
@@ -118,6 +125,10 @@ export function emit(ast: Node, source: string, options?: EmitterOptions) {
     enterScope([]);
     visitNode(transformAST(ast, null));
     catchup(data.source.length -1);
+    //for aoqi h5,remove the last }
+    var lastBracketIndex:number = output.lastIndexOf("}");
+    output = output.substring(0,lastBracketIndex);
+    output += output.substring(lastBracketIndex+1);
     exitScope();
     return output;
 }
@@ -166,8 +177,18 @@ function visitNode(node: Node) {
 function emitPackage(node: Node) {
     catchup(node.start);
     skip(NodeKind.PACKAGE.length);
-    insert('module');
-    visitNodes(node.children);
+    //aoqih5 去除package node
+    var fisrtChildNode: Node = node.findChildren("name")[0];
+    if(fisrtChildNode){
+        skip(fisrtChildNode.end-fisrtChildNode.start+1);
+    }
+    skip(2);//跳过换行符和最外层的{
+    visitNodes(node.children.concat().slice(1));
+
+    // catchup(node.start);
+    // skip(NodeKind.PACKAGE.length);
+    // insert('module');
+    // visitNodes(node.children);
 }
 
 function emitMeta(node: Node) {
@@ -181,12 +202,58 @@ function emitInclude(node: Node) {
 }
 
 function emitImport(node: Node) {
-    catchup(node.start + NodeKind.IMPORT.length + 1);
     var split = node.text.split('.');
     var name = split[split.length -1];
-    insert(name + ' = ');
-    catchup(node.end);
-    state.scope.declarations.push({ name: name });
+    var importClassForAoqi:string = findTheImportClassForAoqiH5(name);
+    if(importClassForAoqi.indexOf(CAN_NOT_FIND_ANY_TS_FILE)!=-1){
+        //if can not find any match ts file, skip this import node.
+        skipTo(node.start);
+        skip(node.end-node.start+NodeKind.IMPORT.length+2);
+    }else{
+        catchup(node.start + NodeKind.IMPORT.length + 1);
+        insert(importClassForAoqi);
+        skip(node.end-node.start);
+        state.scope.declarations.push({ name: name });
+    }
+    // catchup(node.start + NodeKind.IMPORT.length + 1);
+    // var split = node.text.split('.');
+    // var name = split[split.length -1];
+    // insert(name + ' = ');
+    // catchup(node.end);
+    // state.scope.declarations.push({ name: name });
+}
+
+var FLASH_NATIVE_CLASS:Object = {
+    "Sprite": "Sprite = Laya.Sprite",
+    "TextField": "Text = Laya.Text",
+    "SimpleButton": "Button = Laya.Button",
+    "MovieClip": "ViewStack = Laya.ViewStack"
+}
+
+function findTheImportClassForAoqiH5(name):string {
+    var flashNativeClass = FLASH_NATIVE_CLASS[name];
+    if(flashNativeClass){
+        return flashNativeClass;
+    }else{
+        var exsitsFileNames = glob.sync('**/'+name+'.ts', {
+            "cwd": path.join(toolConfig.sourcePath),
+            "nodir": true
+        });
+        if(exsitsFileNames.length==0){
+            var resultStr:string = name+CAN_NOT_FIND_ANY_TS_FILE;
+            console.log(resultStr)
+            return resultStr;
+        }else{
+            var firstClassPath = exsitsFileNames[0];
+            // console.log("firstClassPath:"+path.join(toolConfig.sourcePath,firstClassPath))
+            // console.log("data.filePath:"+data.filePath)
+            firstClassPath = path.relative(path.dirname(data.filePath), path.join(toolConfig.sourcePath,firstClassPath));
+            console.log("find import relative:"+firstClassPath)
+            firstClassPath = firstClassPath.replace(/\\/g,"/");
+            firstClassPath = firstClassPath.replace(".ts","");
+            return name +" from \'"+firstClassPath+"\'";
+        }
+    }
 }
 
 function emitInterface(node: Node) {
@@ -360,7 +427,7 @@ function emitDeclaration(node: Node) {
             skipTo(node.end);
         }) 
         if (insertExport) {
-            insert('export');
+            insert('export default');
         }
     }
 }
@@ -381,6 +448,7 @@ function emitType(node: Node) {
         case 'uint':
             type = 'number'
             break;
+        case 'Object'://for aoqi h5
         case '*':
             type = 'any'
             break;

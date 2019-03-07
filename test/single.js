@@ -1,5 +1,8 @@
 /*jshint node:true*/
-
+const  toolConfig = require("../../tool_config");
+var AoqiH5PreHandle = require('../lib/aoqiH5PreHandle');
+var AsFilePath = toolConfig.sourcePath+"ts-learning/ActivateProficient.as";
+// var AsFilePath = toolConfig.sourcePath+"ts-learning/IInteractHelper.as"
 var AS3Parser = require('../lib/parser'),
     emitter = require('../lib/emitter'),
     fs = require('fs'),
@@ -8,9 +11,12 @@ var AS3Parser = require('../lib/parser'),
 var parser = new AS3Parser();
 
 
-var content = fs.readFileSync(path.join(__dirname ,'single', 'file.as'), 'UTF-8' );
-var ast = parser.buildAst('file.as', content);
-
-fs.writeFileSync(path.join(__dirname ,'single', 'file.ast.json'), JSON.stringify(ast, null, 4));
-fs.writeFileSync(path.join(__dirname ,'single', 'file.ts'),  emitter.emit(ast, content));
+var content = fs.readFileSync(AsFilePath, 'UTF-8' );
+var aoqiPreHandle = new AoqiH5PreHandle();
+content = aoqiPreHandle.handle(content);
+var ast = parser.buildAst(path.basename(AsFilePath), content);
+var fileName = path.basename(AsFilePath,".as");
+var targetPath = path.join(toolConfig.sourcePath ,'ts-learning', 'test', fileName+".ts");
+fs.writeFileSync(path.join(toolConfig.sourcePath ,'ts-learning', 'test', fileName+'.ast.json'), JSON.stringify(ast, null, 4));
+fs.writeFileSync(targetPath,  emitter.emit(ast, content,targetPath));
 

@@ -4,6 +4,8 @@ import AS3Parser = require('./parser');
 import emitter = require('./emitter');
 import fs = require('fs');
 import path = require('path');
+import AoqiH5PreHandle = require('./aoqiH5PreHandle');
+
 
 require('fs-extended')
 
@@ -31,7 +33,82 @@ function readdir(dir: string, prefix = ''): string[] {
 }
 
 function displayHelp() {
-    console.log('usage: as3-to-typescript <sourceDir> <outputDir>');
+    console.log('usage: as3-to-typescript <sourceDir> <outputDir>             when accept two arg,must be directory.');
+    console.log('usage: as3-to-typescript <sourceDir>|<sourceFile>            when accecpt one arg,it can be directory or file.');
+}
+
+function handleTwoArg() {
+    var sourceDir = path.resolve(process.cwd(), process.argv[2]);
+    if (!fs.existsSync(sourceDir) || !fs.statSync(sourceDir).isDirectory()) {
+        throw new Error('invalid source dir');
+    }
+
+    var outputDir = path.resolve(process.cwd(), process.argv[3]);
+    if (fs.existsSync(outputDir)) {
+        if (!fs.statSync(outputDir).isDirectory()) {
+            throw new Error('invalid ouput dir');
+            process.exit(1)
+        }
+        rimraf.sync(outputDir);
+    }
+    fs.mkdirSync(outputDir);
+
+    var files = readdir(sourceDir).filter(file => /.as$/.test(file));
+    var number = 0;
+    var length = files.length;
+    files.forEach(function (file) {
+        console.log('compiling \'' + file + '\' ' + number + '/' + length);
+        handleOneAsFile(file,sourceDir,outputDir);
+        number ++;
+    });
+}
+
+function handleOneAsFile(file,sourceDir,outputDir,isDeleteAsFileAfterOutPut) {
+    if(isDeleteAsFileAfterOutPut==undefined||isDeleteAsFileAfterOutPut==null){
+        isDeleteAsFileAfterOutPut = false;
+    }
+    var parser = new AS3Parser();
+    var content = fs.readFileSync(path.resolve(sourceDir, file), 'UTF-8');
+    var aoqiPreHandle = new AoqiH5PreHandle();
+    console.log('prehandling for aoqi h5');
+    content = aoqiPreHandle.handle(content);
+    console.log('parsing');
+    var ast = parser.buildAst(path.basename(file), content);
+    console.log('emitting');
+    (<any>fs).createFileSync(path.resolve(outputDir, file.replace(/.as$/, '.ts')), emitter.emit(ast, content,file));
+
+    if(isDeleteAsFileAfterOutPut){
+        rimraf.sync(path.resolve(sourceDir, file));
+    }
+}
+
+function handleOneArg() {
+    var sourceDir = path.resolve(process.cwd(), process.argv[2]);
+    if (!fs.existsSync(sourceDir)) {
+        throw new Error('invalid source dir');
+    }
+    var outputDir;
+    if(fs.statSync(sourceDir).isDirectory()){
+        outputDir = sourceDir;
+        var files = readdir(sourceDir).filter(file => /.as$/.test(file));
+        var number = 0;
+        var length = files.length;
+        files.forEach(function (file) {
+            console.log('compiling \'' + file + '\' ' + number + '/' + length);
+            handleOneAsFile(file,sourceDir,outputDir,true);
+            number ++;
+        });
+    }else{
+        var file = sourceDir;
+        var sourceDiretory = path.dirname(sourceDir);
+        outputDir = sourceDiretory;
+        if(path.extname(file)==".as"){
+            console.log('compiling \'' + file + '\' ' + number + '/' + 1);
+            handleOneAsFile(file,sourceDiretory,outputDir,true);
+        }else{
+            throw new Error('not as file!');
+        }
+    }
 }
 
 export function run() {
@@ -39,37 +116,14 @@ export function run() {
         displayHelp();
         process.exit(0);
     }
-    if (process.argv.length !== 4) {
+    if (process.argv.length > 4) {
         throw new Error('source dir and output dir are mandatory');
         process.exit(1)
     }
-    var sourceDir = path.resolve(process.cwd(), process.argv[2]);
-    if (!fs.existsSync(sourceDir) || !fs.statSync(sourceDir).isDirectory()) {
-        throw new Error('invalid source dir');
+    if(process.argv.length==4){
+        handleTwoArg();
+    }if(process.argv.length==3){
+        handleOneArg();
     }
-    
-    var outputDir = path.resolve(process.cwd(), process.argv[3]);
-    if (fs.existsSync(outputDir)) {
-        if (!fs.statSync(outputDir).isDirectory()) {
-            throw new Error('invalid ouput dir');
-            process.exit(1)
-        } 
-        rimraf.sync(outputDir);
-    }
-    fs.mkdirSync(outputDir);
-    
-    var files = readdir(sourceDir).filter(file => /.as$/.test(file));
-    var number = 0;
-    var length = files.length;
-    files.forEach(function (file) {
-        var parser = new AS3Parser();
-        console.log('compiling \'' + file + '\' ' + number + '/' + length);
-        var content = fs.readFileSync(path.resolve(sourceDir, file), 'UTF-8');
-        console.log('parsing');
-        var ast = parser.buildAst(path.basename(file), content);
-        console.log('emitting');
-        (<any>fs).createFileSync(path.resolve(outputDir, file.replace(/.as$/, '.ts')), emitter.emit(ast, content));
-        number ++;
-    });
 }
 
