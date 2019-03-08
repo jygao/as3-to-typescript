@@ -1,8 +1,8 @@
 /*jshint node:true*/
 const  toolConfig = require("../../tool_config");
 var AoqiH5PreHandle = require('../lib/aoqiH5PreHandle');
-var AsFilePath = toolConfig.sourcePath+"ts-learning/ActivateProficient.as";
-// var AsFilePath = toolConfig.sourcePath+"ts-learning/IInteractHelper.as"
+// var AsFilePath = toolConfig.sourcePath+"ts-learning/ActivateProficient.as";
+var AsFilePath = toolConfig.sourcePath+"ts-learning/IInteractHelper.as"
 var AS3Parser = require('../lib/parser'),
     emitter = require('../lib/emitter'),
     fs = require('fs'),

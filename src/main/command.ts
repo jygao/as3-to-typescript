@@ -58,7 +58,7 @@ function handleTwoArg() {
     var length = files.length;
     files.forEach(function (file) {
         console.log('compiling \'' + file + '\' ' + number + '/' + length);
-        handleOneAsFile(file,sourceDir,outputDir);
+        handleOneAsFile(file,sourceDir,outputDir,false);
         number ++;
     });
 }
