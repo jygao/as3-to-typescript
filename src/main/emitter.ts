@@ -123,12 +123,18 @@ export function emit(ast: Node, source: string, filePath?:string,options?: Emitt
     
     
     enterScope([]);
-    visitNode(transformAST(ast, null));
-    catchup(data.source.length -1);
-    //for aoqi h5,remove the last }
+    var packageNode = ast.findChild(NodeKind.PACKAGE);
+    visitNode(transformAST(packageNode, ast));
+    catchup(packageNode.end);
+    //record index where the last package } located.
     var lastBracketIndex:number = output.lastIndexOf("}");
-    output = output.substring(0,lastBracketIndex);
-    output += output.substring(lastBracketIndex+1);
+    var contentNode = ast.findChild(NodeKind.CONTENT);
+    visitNode(transformAST(contentNode, ast));
+    // visitNode(transformAST(ast, null));
+    catchup(data.source.length);
+    //remove the last package }
+    var tmpOutput = output.substring(0,lastBracketIndex);
+    output =tmpOutput+output.substring(lastBracketIndex+1);
     exitScope();
     return output;
 }
@@ -182,7 +188,9 @@ function emitPackage(node: Node) {
     if(fisrtChildNode){
         skip(fisrtChildNode.end-fisrtChildNode.start+1);
     }
-    skip(2);//跳过换行符和最外层的{
+    var contetChildNode: Node = node.findChildren("content")[0];
+    skipTo(contetChildNode.start);//跳过换行符和最外层的{
+    // skip(2);//跳过换行符和最外层的{
     visitNodes(node.children.concat().slice(1));
 
     // catchup(node.start);
@@ -236,7 +244,7 @@ function findTheImportClassForAoqiH5(name):string {
     if(flashNativeClass){
         return flashNativeClass;
     }else{
-        var exsitsFileNames = glob.sync('**/'+name+'.ts', {
+        var exsitsFileNames = glob.sync('**/'+name+'+(.ts|.as)', {
             "cwd": path.join(toolConfig.sourcePath),
             "nodir": true
         });
@@ -252,7 +260,13 @@ function findTheImportClassForAoqiH5(name):string {
             console.log("find import relative:"+firstClassPath)
             firstClassPath = firstClassPath.replace(/\\/g,"/");
             firstClassPath = firstClassPath.replace(".ts","");
-            return name +" from \'"+firstClassPath+"\'";
+            firstClassPath = firstClassPath.replace(".as","");
+            if(firstClassPath.indexOf("..")==-1){
+                return name +" from \'./"+firstClassPath+"\'";
+            }else{
+                return name +" from \'"+firstClassPath+"\'";
+            }
+
         }
     }
 }
@@ -290,22 +304,24 @@ function emitInterfacesNormalFunction(node:Node) {
         var params:Node[]  = paramerterList.findChildren(NodeKind.PARAMETER);
         params.forEach(param =>  {
             var nameTypeInit = param.findChild(NodeKind.NAME_TYPE_INIT);
-            var nameTypeInit_name_node = nameTypeInit.findChild(NodeKind.NAME);
-            // console.log("nameTypeInit_name_node:"+nameTypeInit_name_node.text);
-            catchup(nameTypeInit_name_node.end);
-            var nameTypeInit_type_node = nameTypeInit.findChild(NodeKind.TYPE);
-            var nameTypeInit_init_node = nameTypeInit.findChild(NodeKind.INIT);
-            if(nameTypeInit_init_node){
-                // console.log("has nameTypeInit_init_node:"+state.index+" "+nameTypeInit_init_node.text);
-                insert("?");
-                if(nameTypeInit_type_node){
-                    emitType(nameTypeInit_type_node);
-                }
-                skipTo(nameTypeInit_init_node.end);
-            }else{
-                // console.log("no nameTypeInit_init_node:"+state.index);
-                if(nameTypeInit_type_node){
-                    emitType(nameTypeInit_type_node);
+            if(nameTypeInit){
+                var nameTypeInit_name_node = nameTypeInit.findChild(NodeKind.NAME);
+                // console.log("nameTypeInit_name_node:"+nameTypeInit_name_node.text);
+                catchup(nameTypeInit_name_node.end);
+                var nameTypeInit_type_node = nameTypeInit.findChild(NodeKind.TYPE);
+                var nameTypeInit_init_node = nameTypeInit.findChild(NodeKind.INIT);
+                if(nameTypeInit_init_node){
+                    // console.log("has nameTypeInit_init_node:"+state.index+" "+nameTypeInit_init_node.text);
+                    insert("?");
+                    if(nameTypeInit_type_node){
+                        emitType(nameTypeInit_type_node);
+                    }
+                    skipTo(nameTypeInit_init_node.end);
+                }else{
+                    // console.log("no nameTypeInit_init_node:"+state.index);
+                    if(nameTypeInit_type_node){
+                        emitType(nameTypeInit_type_node);
+                    }
                 }
             }
         });
@@ -579,7 +595,16 @@ function emitCall(node: Node) {
             catchup(node.end);
             return;
         }
-    } 
+    }
+    else  if (node.children[0].kind === NodeKind.IDENTIFIER&&node.children[0].text=="int") {
+        skipTo(node.children[0].start);
+        insert("Number");
+        skip(node.children[0].end-node.children[0].start);
+        var restNodes = node.children.concat();
+        restNodes.shift();
+        visitNodes(restNodes);
+        return;
+    }
     visitNodes(node.children);
 }
 

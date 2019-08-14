@@ -5,7 +5,7 @@ import emitter = require('./emitter');
 import fs = require('fs');
 import path = require('path');
 import AoqiH5PreHandle = require('./aoqiH5PreHandle');
-
+import toolConfig = require('../../tool_config');
 
 require('fs-extended')
 
@@ -57,6 +57,7 @@ function handleTwoArg() {
     var number = 0;
     var length = files.length;
     files.forEach(function (file) {
+        file = path.join(sourceDir,file);
         console.log('compiling \'' + file + '\' ' + number + '/' + length);
         handleOneAsFile(file,sourceDir,outputDir,false);
         number ++;
@@ -94,6 +95,7 @@ function handleOneArg() {
         var number = 0;
         var length = files.length;
         files.forEach(function (file) {
+            file = path.join(sourceDir,file);
             console.log('compiling \'' + file + '\' ' + number + '/' + length);
             handleOneAsFile(file,sourceDir,outputDir,true);
             number ++;
