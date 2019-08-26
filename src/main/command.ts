@@ -6,6 +6,8 @@ import fs = require('fs');
 import path = require('path');
 import AoqiH5PreHandle = require('./aoqiH5PreHandle');
 import toolConfig = require('../../tool_config');
+import aoqiH5AfterHandle = require("./aoqiH5AfterHandle");
+import AoqiH5AfterHandle = require("./AoqiH5AfterHandle");
 
 require('fs-extended')
 
@@ -53,18 +55,18 @@ function handleTwoArg() {
     }
     fs.mkdirSync(outputDir);
 
-    var files = readdir(sourceDir).filter(file => /.as$/.test(file));
+    var files = readdir(sourceDir,sourceDir).filter(file => /.as$/.test(file));
     var number = 0;
     var length = files.length;
     files.forEach(function (file) {
-        file = path.join(sourceDir,file);
+        // file = path.join(sourceDir,file);
         console.log('compiling \'' + file + '\' ' + number + '/' + length);
         handleOneAsFile(file,sourceDir,outputDir,false);
         number ++;
     });
 }
 
-function handleOneAsFile(file,sourceDir,outputDir,isDeleteAsFileAfterOutPut) {
+function handleOneAsFile(file,sourceDir,outputDir,isDeleteAsFileAfterOutPut,allFilesUnderSourceDir:Array<string>=null) {
     if(isDeleteAsFileAfterOutPut==undefined||isDeleteAsFileAfterOutPut==null){
         isDeleteAsFileAfterOutPut = false;
     }
@@ -76,7 +78,10 @@ function handleOneAsFile(file,sourceDir,outputDir,isDeleteAsFileAfterOutPut) {
     console.log('parsing');
     var ast = parser.buildAst(path.basename(file), content);
     console.log('emitting');
-    (<any>fs).createFileSync(path.resolve(outputDir, file.replace(/.as$/, '.ts')), emitter.emit(ast, content,file));
+    var outPutContent:string = emitter.emit(ast, content,file);
+    var aoqiAfterHandle = new AoqiH5AfterHandle();
+    outPutContent = aoqiAfterHandle.handle(outPutContent,allFilesUnderSourceDir,file);
+    (<any>fs).createFileSync(path.resolve(outputDir, file.replace(/.as$/, '.ts')),outPutContent );
 
     if(isDeleteAsFileAfterOutPut){
         rimraf.sync(path.resolve(sourceDir, file));
@@ -91,13 +96,13 @@ function handleOneArg() {
     var outputDir;
     if(fs.statSync(sourceDir).isDirectory()){
         outputDir = sourceDir;
-        var files = readdir(sourceDir).filter(file => /.as$/.test(file));
+        var files = readdir(sourceDir,sourceDir).filter(file => /.as$/.test(file));
         var number = 0;
         var length = files.length;
         files.forEach(function (file) {
-            file = path.join(sourceDir,file);
+            // file = path.join(sourceDir,file);
             console.log('compiling \'' + file + '\' ' + number + '/' + length);
-            handleOneAsFile(file,sourceDir,outputDir,true);
+            handleOneAsFile(file,sourceDir,outputDir,true,files);
             number ++;
         });
     }else{

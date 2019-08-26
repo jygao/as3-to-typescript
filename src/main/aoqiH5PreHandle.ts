@@ -1,10 +1,10 @@
 class AoqiH5PreHandle {
 
-    public constructor(){
+    public constructor() {
     }
-    public handle(content:string):string{
-        content = content.replace("/\r\n/g","\n");
-        content = content.replace(/trace\s*\(/g, "console.log(");
+
+    public handle(content: string): string {
+        content = content.replace("/\r\n/g", "\n");
         content = content.replace(/\bNewDialogWithCallback\b/g, "NewDialog");
         content = content.replace(/\bProgressFullSprite\b/g, "Loading");
         content = content.replace(/\bLocalStore\b/g, "LocalCache");
@@ -20,6 +20,23 @@ class AoqiH5PreHandle {
         content = content.replace(/NewActivity/g, "Activity");
         content = content.replace(/clearFiltersWithTips/g, "clearFilters");
         content = content.replace(/applyGrayWithTips/g, "applyGray");
+
+        content = content.replace(/ServiceContainer.getService\(I([a-zA-Z0-9_]+)\)/g, "ServiceContainer.getService(ServiceConfig.$1)");
+        content = content.replace(/ServiceContainer.getService\("([a-zA-Z0-9_]+)"\)/g, "ServiceContainer.getService(ServiceConfig.$1)");
+        content = content.replace(/ServiceContainer.tryGetService\(I([a-zA-Z0-9_]+)/g, "ServiceContainer.tryGetService(ServiceConfig.$1");
+        content = content.replace(/ServiceContainer.tryGetService\("([a-zA-Z0-9_]+)"/g, "ServiceContainer.tryGetService(ServiceConfig.$1");
+        content = content.replace(/forSvc\(I([a-zA-Z0-9_]+)/g, "forSvc(ServiceConfig.$1");
+        content = content.replace(/forSvc\("([a-zA-Z0-9_]+)"/g, "forSvc(ServiceConfig.$1");
+        content = content.replace(/\bApplicationDomain\b/g, "Domain");
+
+
+        content = content.replace(/\bTranslator.translate/g, "");
+
+        content = content.replace("var([s\t]+[w]+:HashMap)([s\t]+=[s\t]+new[s\t]+)HashMap();", "var$1:<any,any>Dictionary$2Dictionary()");
+        content = content.replace("\bHashMap\b", "Dictionary");
+
+
+        content = content.replace(/\bint.MAX_VALUE/g, "Number.MAX_VALUE");
         return content;
     }
 }

@@ -11,8 +11,8 @@
     "test": "node test/runner generate && node test/runner compare",
     "generate": "node test/runner generate",
     "accept": "node test/runner accept",
-    "compile": "tsc --module commonjs --outDir lib --target es5 src/declarations/node.d.ts src/main/parser.ts src/main/emitter.ts src/main/command.ts src/main/aoqiH5PreHandle.ts",
-    "watch": "tsc --module 'commonjs' --outDir lib --target es5 --watch src/declarations/node.d.ts src/main/parser.ts src/main/emitter.ts src/main/command.ts"
+    "compile": "tsc --module commonjs --outDir lib --target es5 src/main/parser.ts src/main/emitter.ts src/main/command.ts src/main/aoqiH5PreHandle.ts src/main/AoqiH5AfterHandle.ts",
+    "watch": "tsc --module commonjs --outDir lib --target es5 src/main/parser.ts src/main/emitter.ts src/main/command.ts src/main/aoqiH5PreHandle.ts src/main/AoqiH5AfterHandle.ts"
   },
   "keywords": [
     "actionscript",
@@ -41,6 +41,6 @@
     "sax": "~0.6.0"
   },
   "devDependencies": {
-    "typescript": "~1.3.0"
+    "typescript": "^3.5.3"
   }
 }

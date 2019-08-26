@@ -1484,10 +1484,12 @@ class AS3Parser {
         var result: Node = new Node(NodeKind.PROP, this.tok.index, this.tok.end);
         var name: Node = new Node(NodeKind.NAME, this.tok.index, this.tok.end, this.tok.text);
         result.children.push(name);
+        var valueStartIndex:number = this.tok.end;
         this.nextToken(); // name
         this.consume(Operators.COLUMN);
         var expr = this.parseExpression();
-        var val = new Node(NodeKind.VALUE, this.tok.index, expr.end, null, [expr])
+        // var val = new Node(NodeKind.VALUE, this.tok.index, expr.end, null, [expr])
+        var val = new Node(NodeKind.VALUE, valueStartIndex, expr.end, null, [expr])
         result.children.push(val);
         result.end = val.end;
         return result;

@@ -8,7 +8,6 @@ import glob = require('glob');
 import path = require('path');
 import toolConfig = require('../../tool_config');
 
-
 var CAN_NOT_FIND_ANY_TS_FILE:string = " can not find any match ts file";
 //Utils
 function assign(target: any, ...items: any[]): any {
@@ -213,8 +212,11 @@ function emitImport(node: Node) {
     var split = node.text.split('.');
     var name = split[split.length -1];
     var importClassForAoqi:string = findTheImportClassForAoqiH5(name);
-    if(importClassForAoqi.indexOf(CAN_NOT_FIND_ANY_TS_FILE)!=-1){
+    var hasImport:boolean = output.indexOf(importClassForAoqi)!=-1;
+    // console.log("hasImport:"+hasImport +" node text:"+node.text)
+    if(importClassForAoqi.indexOf(CAN_NOT_FIND_ANY_TS_FILE)!=-1 || hasImport ){
         //if can not find any match ts file, skip this import node.
+        catchup(node.start-1);
         skipTo(node.start);
         skip(node.end-node.start+NodeKind.IMPORT.length+2);
     }else{
@@ -253,22 +255,39 @@ function findTheImportClassForAoqiH5(name):string {
             console.log(resultStr)
             return resultStr;
         }else{
-            var firstClassPath = exsitsFileNames[0];
+            var firstClassPath = findTheNearestClass(exsitsFileNames);
             // console.log("firstClassPath:"+path.join(toolConfig.sourcePath,firstClassPath))
             // console.log("data.filePath:"+data.filePath)
-            firstClassPath = path.relative(path.dirname(data.filePath), path.join(toolConfig.sourcePath,firstClassPath));
-            console.log("find import relative:"+firstClassPath)
+            // firstClassPath = path.relative(path.dirname(data.filePath), path.join(toolConfig.sourcePath,firstClassPath));
+            console.log("find import relative:"+firstClassPath);
             firstClassPath = firstClassPath.replace(/\\/g,"/");
             firstClassPath = firstClassPath.replace(".ts","");
             firstClassPath = firstClassPath.replace(".as","");
             if(firstClassPath.indexOf("..")==-1){
-                return name +" from \'./"+firstClassPath+"\'";
+                return name +" from \"./"+firstClassPath+"\"";
             }else{
-                return name +" from \'"+firstClassPath+"\'";
+                return name +" from \""+firstClassPath+"\"";
             }
 
         }
     }
+}
+
+function findTheNearestClass(exsitsFileNames) :string{
+    var relativeFilePaths = [];
+    exsitsFileNames.forEach((fileName,index:number,arr)=>{
+        relativeFilePaths[index] = path.relative(path.dirname(data.filePath), path.join(toolConfig.sourcePath,fileName));
+    })
+    relativeFilePaths.sort((a:string,b:string)=>{
+        if(a.length==b.length){
+            return 0;
+        }else if(a.length<b.length){
+            return -1;
+        }else{
+            return 0;
+        }
+    })
+    return relativeFilePaths[0];
 }
 
 function emitInterface(node: Node) {
@@ -366,8 +385,9 @@ function emitFunction(node: Node) {
     emitDeclaration(node);
     enterFunctionScope(node);
     var rest = node.getChildFrom(NodeKind.MOD_LIST);
-    exitScope();
+    // exitScope();
     visitNodes(rest);
+    exitScope();
 }
 
 function emitClass(node: Node) {
@@ -652,11 +672,20 @@ function emitIdent(node: Node) {
     }
     
     var def = findDefInScope(node.text);
+    // console.log("findDefInScope:"+node.text+" def:"+def);
     if (def && def.bound) {
+        // console.log( "def.bound"+def.bound);
         insert(def.bound + '.');
     }
     if (!def && state.currentClassName && globVars.indexOf(node.text) === -1 && state.emitThisForNextIdent && node.text !== state.currentClassName) {
-        insert('this.');
+        var isMayBeClassIdent:boolean = node.text.match(/[A-Z]{1}[a-z_A-Z]+/g)!=null;
+        //if ident is Class name that not exsit ,do not insert this.
+        if(!isMayBeClassIdent){
+            // console.log("before output:"+output +" "+"output length:"+output.length);
+            // console.log("insert this:"+node.text+" "+node.kind+" "+node.start);
+            insert('this.');
+            // console.log("after output:"+output +" "+"output length:"+output.length);
+        }
     }
     state.emitThisForNextIdent = true;
 }
@@ -729,7 +758,7 @@ function enterFunctionScope(node: Node) {
                         .findChildren(NodeKind.NAME_TYPE_INIT)
                         .map(node => ({ name: node.findChild(NodeKind.NAME).text }))
                 );
-            } 
+            }
             if (node.kind !== NodeKind.FUNCTION && node.children && node.children.length) {
                 result = Array.prototype.concat.apply(result, node.children.map(traverse));
             }
